@@ -14,11 +14,11 @@ from matplotlib.animation import FuncAnimation
 from PIL import Image
 
 # Load the saved model
-model = BertForSequenceClassification.from_pretrained("model_1000")
+model = BertForSequenceClassification.from_pretrained("models/model_1000")
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
 # Load and preprocess the test data
-df = pd.read_csv("train_data.csv")  # Replace with your test data file
+df = pd.read_csv("data/train_data.csv")  # Replace with your test data file
 texts = df["Text"]
 
 # Initialize the BERT tokenizer and tokenize the data

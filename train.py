@@ -4,8 +4,11 @@ from transformers import BertTokenizer, BertForSequenceClassification, AdamW
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from tqdm import tqdm
 
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
 # Load and preprocess the data
-df = pd.read_csv("train_data.csv")
+df = pd.read_csv("data/train_data.csv")
 labels = df["Label"].map({"높음": 0, "보통": 1, "낮음": 2})
 texts = df["Text"]
 
@@ -44,7 +47,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("current device: ", device)
 model.to(device)
 
-epochs = 1000
+epochs = 10
 loss_graph = []
 accuracy_graph = []
 correct_predictions = 0
@@ -67,22 +70,21 @@ for epoch in tqdm(range(epochs)):
         loss.backward()
         optimizer.step()
 
-        # draw loss graph
-        loss_graph.append(loss.item())
-
         # draw accuracy graph
         _, predicted_labels = torch.max(outputs.logits, dim=1)
         correct_predictions += torch.sum(predicted_labels == labels).item()
         accuracy_graph.append(correct_predictions / len(train_dataset))
 
+        # print(loss.item(), correct_predictions / len(train_dataset))
+
 
     avg_train_loss = total_loss / len(train_loader)
     print(f"Epoch {epoch + 1}/{epochs}, Train Loss: {avg_train_loss:.4f}")
+    loss_graph.append(avg_train_loss)
 
 # save loss graph and accuracy graph
 import matplotlib.pyplot as plt
 plt.plot(loss_graph)
-plt.plot(accuracy_graph)
 plt.savefig('loss_accuracy_graph.png')
 
 
@@ -126,7 +128,7 @@ with torch.no_grad():
 test_accuracy = correct_predictions / len(test_dataset)
 print(f"Test Accuracy: {test_accuracy:.4f}")
 
-model.save_pretrained("model_1000")
+# model.save_pretrained("model_1000")
 
 if __name__ == "__main__":
     pass

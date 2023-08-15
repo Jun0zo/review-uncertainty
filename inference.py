@@ -21,7 +21,7 @@ print("[*] Model loaded")
 
 # Load and preprocess the test data
 df = pd.read_csv("data/review_data.csv")
-texts = df["Text"][:1000]
+texts = df["Text"]
 
 # Initialize the BERT tokenizer and tokenize the data
 encoded_texts = tokenizer(texts.tolist(), padding=True, truncation=True, return_tensors="pt")
@@ -63,21 +63,17 @@ font_path = "C:/Windows/Fonts/malgun.ttf"
 font_prop = FontProperties(fname=font_path)
 plt.rcParams["font.family"] = font_prop.get_name()
 
-# EM Clustering
-gmm = GaussianMixture(n_components=3, random_state=0).fit(pca_result)
-labels = gmm.predict(pca_result)
-df["Label"] = labels
-print("[*] Clustering performed")
+# EM Clustering (calcuate auto n_components with color map)
+n_components = np.arange(1, 21)
+models = [GaussianMixture(n, covariance_type='full', random_state=0).fit(pca_result) for n in n_components]
+plt.plot(n_components, [m.bic(pca_result) for m in models], label='BIC')
+plt.plot(n_components, [m.aic(pca_result) for m in models], label='AIC')
+plt.legend(loc='best')
+plt.xlabel('n_components')
+plt.show()
 
-# make color map
-colors = []
-for i in range(len(labels)):
-    if labels[i] == 0:
-        colors.append('red')
-    elif labels[i] == 1:
-        colors.append('blue')
-    else:
-        colors.append('green')
+# Use Seaborn for color mapping
+colors = sns.color_palette("hls", 3)
 
 # Create a 3D scatter plot using Matplotlib
 fig = plt.figure(figsize=(10, 10))
@@ -93,10 +89,10 @@ def update(frame):
 num_frames = 90
 
 # Create the animation
-# animation = FuncAnimation(fig, update, frames=num_frames, interval=50)
+animation = FuncAnimation(fig, update, frames=num_frames, interval=50)
 
 # Save the animation as a GIF file
-# animation.save("3d_rotation.gif", writer='imagemagick', fps=10)
+animation.save("3d_rotation2.gif", writer='imagemagick', fps=10)
 
 # Use Mplcursors to add hover text
 cursor = mplcursors.cursor(hover=True)
