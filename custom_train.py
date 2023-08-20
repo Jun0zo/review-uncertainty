@@ -150,7 +150,8 @@ with torch.no_grad():
 test_accuracy = correct_predictions / len(test_dataset)
 print(f"Test Accuracy: {test_accuracy:.4f}")
 
-# model.save_pretrained("model_1000")
-
+# model.save_pretrained("model2_1000")
+torch.save(model.state_dict(), 'bert_monte_carlo_dropout_model.pth')
+# model.load_state_dict(torch.load('bert_monte_carlo_dropout_model.pth'))
 if __name__ == "__main__":
     pass
