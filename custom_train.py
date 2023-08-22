@@ -6,32 +6,19 @@ import torch.nn as nn
 from transformers import BertTokenizer, BertModel, AdamW
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+from Class.BertWithMCDO import BertWithMCDO
 
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-class BertWithNN(nn.Module):
-    def __init__(self, dropout_rate=0.1, num_labels=3):
-        super(BertWithNN, self).__init__()
-        self.bert = BertModel.from_pretrained('bert-base-uncased')
-        self.dropout = nn.Dropout(dropout_rate)
-        self.fc = nn.Linear(768, num_labels)
-
-    def forward(self, input_ids, attention_mask):
-        bert_output = self.bert(input_ids, attention_mask=attention_mask)
-        pooled_output = bert_output.pooler_output
-        dropout_output = self.dropout(pooled_output)
-        out = self.fc(dropout_output)
-        return out
-    
-
 # Load and preprocess the data
 df = pd.read_csv("data/train_data.csv")
-labels = df["Label"].map({"높음": 0, "보통": 1, "낮음": 2})
+labels = df["Label"].map({"높음": 2, "보통": 1, "낮음": 0})
 texts = df["Text"]
 
 # Initialize the BERT tokenizer and tokenize the data
-tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased")
 encoded_texts = tokenizer(texts.tolist(), padding=True, truncation=True, return_tensors="pt")
 
 # Create the input dataset
@@ -54,8 +41,8 @@ val_loader = DataLoader(val_dataset, batch_size=16)
 test_loader = DataLoader(test_dataset, batch_size=16)
 
 # Initialize the BERT model for sequence classification
-model = BertWithNN()
-print(model.parameters())
+model = BertWithMCDO()
+
 # Define the optimizer and loss function
 criterion = nn.CrossEntropyLoss()
 optimizer = AdamW(model.parameters(), lr=2e-5)
@@ -67,10 +54,11 @@ print("current device: ", device)
 model.to(device)
 
 epochs = 100
-loss_graph = []
-accuracy_graph = []
+loss_graph = {'train': [], 'validation': []}
+accuracy_graph = {'train': [], 'validation': []}
 
-
+# train the model (train and valid set)
+model.train()
 for epoch in tqdm(range(epochs)):
     model.train()
     total_loss = 0
@@ -82,7 +70,7 @@ for epoch in tqdm(range(epochs)):
 
         optimizer.zero_grad()
         
-        outputs = model(input_ids, attention_mask=attention_mask)
+        outputs, embedding = model(input_ids, attention_mask=attention_mask)
         # outputs = model(input_ids, attention_mask=attention_mask)
         
         loss = criterion(outputs, labels)
@@ -94,64 +82,75 @@ for epoch in tqdm(range(epochs)):
         _, predicted_labels = torch.max(outputs, dim=1)
         correct_predictions += torch.sum(predicted_labels == labels).item()
         
-    
-
-
-    
     # print(f"Epoch {epoch + 1}/{epochs}, Train Loss: {avg_train_loss:.4f}")
     avg_train_loss = total_loss / len(train_loader)
-    loss_graph.append(avg_train_loss)
+    loss_graph['train'].append(avg_train_loss)
     avg_train_accuracy = correct_predictions / len(train_dataset)
     print('avg train accuracy: ', avg_train_accuracy)
-    accuracy_graph.append(avg_train_accuracy)
+    accuracy_graph['train'].append(avg_train_accuracy)
 
-# save loss graph and accuracy graph
-import matplotlib.pyplot as plt
-plt.plot(loss_graph)
-plt.plot(accuracy_graph)
-plt.savefig('loss_accuracy_graph.png')
+    # evaluate on validation set
+    model.eval()
+    total_val_loss = 0
+    correct_predictions = 0
 
+    with torch.no_grad():
+        for batch in val_loader:
+            input_ids, attention_mask, labels = batch
+            input_ids, attention_mask, labels = input_ids.to(device), attention_mask.to(device), labels.to(device)
 
+            outputs, embedding = model(input_ids, attention_mask=attention_mask)
+            loss = criterion(outputs, labels)
+            total_val_loss += loss.item()
 
-# Evaluation on the validation set
-model.eval()
-total_val_loss = 0
-correct_predictions = 0
+            _, predicted_labels = torch.max(outputs, dim=1)
+            correct_predictions += torch.sum(predicted_labels == labels).item()
 
-with torch.no_grad():
-    for batch in val_loader:
-        input_ids, attention_mask, labels = batch
-        input_ids, attention_mask, labels = input_ids.to(device), attention_mask.to(device), labels.to(device)
+        val_accuracy = correct_predictions / len(val_dataset)
+        avg_val_loss = total_val_loss / len(val_loader)
+        loss_graph['validation'].append(avg_val_loss)
+        accuracy_graph['validation'].append(val_accuracy)
 
-        outputs = model(input_ids, attention_mask=attention_mask)
-        loss = criterion(outputs, labels)
-        total_val_loss += loss.item()
+# Plot the loss and accuracy graphs
+plt.plot(loss_graph['train'], label='Train Loss')
+plt.plot(loss_graph['validation'], label='Validation Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+plt.title('Training and Validation Loss')
+plt.savefig('outputs/loss_graph.png')
 
-        _, predicted_labels = torch.max(outputs, dim=1)
-        correct_predictions += torch.sum(predicted_labels == labels).item()
+plt.plot(accuracy_graph['train'], label='Train Accuracy')
+plt.plot(accuracy_graph['validation'], label='Validation Accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.title('Training and Validation Accuracy')
+plt.savefig('outputs/accuracy_graph.png')
 
-val_accuracy = correct_predictions / len(val_dataset)
-avg_val_loss = total_val_loss / len(val_loader)
-print(f"Validation Accuracy: {val_accuracy:.4f}, Validation Loss: {avg_val_loss:.4f}")
+plt.plot(accuracy_graph['train'], label='Accuracy')
+plt.plot(loss_graph['train'], label='Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.title('Training Accuracy and Loss')
+plt.savefig('outputs/training_acc_loss.png')
 
 # Evaluation on the test set
 model.eval()
 correct_predictions = 0
 
+# testset
 with torch.no_grad():
     for batch in test_loader:
         input_ids, attention_mask, labels = batch
         input_ids, attention_mask, labels = input_ids.to(device), attention_mask.to(device), labels.to(device)
 
-        outputs = model(input_ids, attention_mask=attention_mask)
+        outputs, embedding = model(input_ids, attention_mask=attention_mask)
         _, predicted_labels = torch.max(outputs, dim=1)
         correct_predictions += torch.sum(predicted_labels == labels).item()
 
 test_accuracy = correct_predictions / len(test_dataset)
 print(f"Test Accuracy: {test_accuracy:.4f}")
 
-# model.save_pretrained("model2_1000")
-torch.save(model.state_dict(), 'bert_monte_carlo_dropout_model.pth')
-# model.load_state_dict(torch.load('bert_monte_carlo_dropout_model.pth'))
-if __name__ == "__main__":
-    pass
+model.save("models/bert_monte_carlo_dropout_model(multi-case).pth")
