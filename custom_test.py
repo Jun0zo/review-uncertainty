@@ -3,6 +3,7 @@
 import pandas as pd
 import torch
 import torch.nn as nn
+import numpy as np
 from transformers import BertTokenizer, BertModel, AdamW
 from torch.utils.data import DataLoader, TensorDataset, random_split
 import matplotlib.pyplot as plt
@@ -39,6 +40,7 @@ num_samples = 100  # Choose an appropriate number of samples
 
 # add new data frame to save
 new_df = pd.DataFrame(columns=['Text', 'Label'])
+
 embeddings = []
 cnt = 0
 
@@ -79,6 +81,10 @@ with torch.no_grad():
         else:
             print("no ! ")
 
+
+embeddings = np.concatenate(embeddings, axis=0)
+# error TypeError: expected Tensor as element 0 in argument 0, but got BaseModelOutputWithPoolingAndCrossAttentions
+
 # Perform PCA on the embeddings
 pca = PCA(n_components=3)  # You can adjust the number of components as needed
 pca_result = pca.fit_transform(embeddings)
@@ -101,3 +107,4 @@ new_df.to_csv('outputs/tested_data.csv', index=False)
 
     
 print('acc :', cnt / len(texts))
+
