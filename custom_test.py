@@ -17,8 +17,8 @@ os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 model_path = 'models/bert_monte_carlo_dropout_model(multi-case).pth'
 # df_save_path ='outputs/tested_data(song-light-0-norm).csv'
-df_save_path ='results/mid/tested_data(song-multi-0-norm).csv'
-dropout_rate = 0.5
+df_save_path ='results/mid/tested_data(song-multi-1-norm).csv'
+dropout_rate = 0.1
 
 # Load and preprocess the data
 df = pd.read_csv("data/train_data.csv")
@@ -55,7 +55,7 @@ with torch.no_grad():
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
 
-        prediction_mean, prediction_std, predicted_label, bert_hidden_state = model.monte_carlo_forward(input_ids, attention_mask, num_samples, embedding_idx=-1, method="norm2")
+        prediction_mean, prediction_std, predicted_label, bert_hidden_state = model.monte_carlo_forward(input_ids, attention_mask, num_samples, embedding_idx=1, method="norm2")
         embeddings.append(bert_hidden_state)
         
         # add prediction results to new data frame
