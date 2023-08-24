@@ -45,22 +45,21 @@ with torch.no_grad():
     # loop with tqdm
     for text in tqdm(texts):
         output_list = []
-        with torch.no_grad():
-            inputs = tokenizer(text, padding=True, truncation=True, return_tensors="pt")
-            input_ids = inputs["input_ids"]
-            attention_mask = inputs["attention_mask"]
+        inputs = tokenizer(text, padding=True, truncation=True, return_tensors="pt")
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
 
-            prediction_mean, prediction_std, hidden_state = model.monte_carlo_forward(input_ids, attention_mask, num_samples)
-            embeddings.append(hidden_state)
+        prediction_mean, prediction_std, hidden_state = model.monte_carlo_forward(input_ids, attention_mask, num_samples)
+        embeddings.append(hidden_state)
 
-            _, predicted_labels = torch.max(prediction_mean, dim=0)
+        _, predicted_labels = torch.max(prediction_mean, dim=0)
 
-            # add new data frame
-            new_df.loc[cnt] = [0, int(predicted_labels), len(text), prediction_std.tolist(), text, prediction_mean.tolist()]
-            cnt += 1
+        # add new data frame
+        new_df.loc[cnt] = [0, int(predicted_labels), len(text), prediction_std.tolist(), text, prediction_mean.tolist()]
+        cnt += 1
 
-            if cnt % 10000 == 0:
-                df.to_csv('outputs/tested_data(check_point).csv', index=False)
+        if cnt % 10000 == 0:
+            df.to_csv('outputs/tested_data(check_point).csv', index=False)
 
 embeddings = np.concatenate(embeddings, axis=0)
 # error TypeError: expected Tensor as element 0 in argument 0, but got BaseModelOutputWithPoolingAndCrossAttentions

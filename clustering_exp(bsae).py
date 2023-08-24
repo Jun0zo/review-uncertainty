@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.mixture import GaussianMixture
 from Class.BertWithMCDO import BertWithMCDO, BertWithMCDOBase
-
+from tqdm import tqdm
 
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -29,43 +29,30 @@ encoded_texts = tokenizer(texts.tolist(), padding=True, truncation=True, return_
 model = BertWithMCDOBase()
 model.load('models/bert_monte_carlo_dropout_model(base).pth')
 
-num_samples = 1  # Choose an appropriate number of samples
+num_samples = 100  # Choose an appropriate number of samples
 
 # add new data frame to save
-new_df = pd.DataFrame(columns=['Text', 'Label'])
+new_df = pd.DataFrame(columns=["ClusterIdx","PredictedLabel", "TextLength", "Std", "Text","Mean"])
 
 embeddings = []
 cnt = 0
 
 with torch.no_grad():
-    for text in texts:
+    for text in tqdm(texts):
         output_list = []
-        for _ in range(num_samples):
-            with torch.no_grad():
-                inputs = tokenizer(text, padding=True, truncation=True, return_tensors="pt")
-                input_ids = inputs["input_ids"]
-                attention_mask = inputs["attention_mask"]
-
-                outputs, embedding = model(input_ids, attention_mask=attention_mask)
-                _, predicted_labels = torch.max(outputs, dim=1)
-
-                output_list.append(outputs)
+        inputs = tokenizer(text, padding=True, truncation=True, return_tensors="pt")
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
         
-        
-        monte_carlo_preds = torch.cat(output_list, dim=0)
-        prediction_mean = torch.mean(monte_carlo_preds, dim=0)
-        prediction_std = torch.std(monte_carlo_preds, dim=0)
-        prediction_entropy = -torch.sum(prediction_mean * torch.log(prediction_mean), dim=0).tolist()
 
-        embeddings.append(embedding)
+        prediction_mean, prediction_std, hidden_state = model.monte_carlo_forward(input_ids, attention_mask, num_samples)
+        embeddings.append(hidden_state)
 
-        prediction_mean = prediction_mean.tolist()
+        _, predicted_labels = torch.max(prediction_mean, dim=0)
 
-        edited_std = prediction_std - torch.min(prediction_std)
-        prediction_label = torch.argmax(torch.mean(monte_carlo_preds, dim=0)).tolist()
-        prediction_std = prediction_std.tolist()
-        edited_std = edited_std.to
-
+        # add new data frame
+        new_df.loc[cnt] = [0, int(predicted_labels), len(text), prediction_std.tolist(), text, prediction_mean.tolist()]
+        cnt += 1
 
 embeddings = np.concatenate(embeddings, axis=0)
 # error TypeError: expected Tensor as element 0 in argument 0, but got BaseModelOutputWithPoolingAndCrossAttentions
@@ -88,4 +75,4 @@ ax.scatter(pca_result[:, 0], pca_result[:, 1], pca_result[:, 2], c=gmm_labels, s
 plt.savefig('outputs/embeding_with_custom_test(base).png')
 
 # save new data frame
-# new_df.to_csv('outputs/tested_data.csv', index=False)
+new_df.to_csv('outputs/tested_data(uncased).csv', index=False)

@@ -7,7 +7,7 @@ from transformers import BertTokenizer, BertModel, AdamW
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from Class.BertWithMCDO import BertWithMCDO
+from Class.BertWithMCDO import BertWithMCDOLight
 
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -41,7 +41,7 @@ val_loader = DataLoader(val_dataset, batch_size=16)
 test_loader = DataLoader(test_dataset, batch_size=16)
 
 # Initialize the BERT model for sequence classification
-model = BertWithMCDO()
+model = BertWithMCDOLight()
 
 # Define the optimizer and loss function
 criterion = nn.CrossEntropyLoss()
@@ -153,4 +153,4 @@ with torch.no_grad():
 test_accuracy = correct_predictions / len(test_dataset)
 print(f"Test Accuracy: {test_accuracy:.4f}")
 
-model.save("models/bert_monte_carlo_dropout_model(multi-case).pth")
+model.save("models/bert_monte_carlo_dropout_model(multi-case-light).pth")

@@ -9,12 +9,16 @@ from torch.utils.data import DataLoader, TensorDataset, random_split
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.mixture import GaussianMixture
-from Class.BertWithMCDO import BertWithMCDO
-
+from Class.BertWithMCDO import BertWithMCDO, BertWithMCDOLight
+from tqdm import tqdm
 
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
+model_path = 'models/bert_monte_carlo_dropout_model(multi-case).pth'
+# df_save_path ='outputs/tested_data(song-light-0-norm).csv'
+df_save_path ='results/mid/tested_data(song-multi-0-norm).csv'
+dropout_rate = 0.5
 
 # Load and preprocess the data
 df = pd.read_csv("data/train_data.csv")
@@ -33,53 +37,36 @@ input_dataset = TensorDataset(
 )
 
 # Initialize the BERT model for sequence classification
-model = BertWithMCDO()
-model.load('models/bert_monte_carlo_dropout_model(multi-case).pth')
+model = BertWithMCDO(dropout_rate=dropout_rate)
+model.load(model_path)
 
 num_samples = 100  # Choose an appropriate number of samples
 
 # add new data frame to save
-new_df = pd.DataFrame(columns=['Text', 'Label'])
-
+new_df = pd.DataFrame(columns=["ClusterIdx", "OriginalLabel", "PredictedLabel", "TextLength", "Std", "Text","Mean"])
 embeddings = []
 cnt = 0
+correct_cnt = 0
 
 with torch.no_grad():
-    for text, label in zip(texts, labels):
+    for text, label in tqdm(zip(texts, labels)):
         output_list = []
-        for _ in range(num_samples):
-            with torch.no_grad():
-                inputs = tokenizer(text, padding=True, truncation=True, return_tensors="pt")
-                input_ids = inputs["input_ids"]
-                attention_mask = inputs["attention_mask"]
+        inputs = tokenizer(text, padding=True, truncation=True, return_tensors="pt")
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
 
-                outputs, embedding = model(input_ids, attention_mask=attention_mask)
-                _, predicted_labels = torch.max(outputs, dim=1)
-
-                output_list.append(outputs)
+        prediction_mean, prediction_std, predicted_label, bert_hidden_state = model.monte_carlo_forward(input_ids, attention_mask, num_samples, embedding_idx=-1, method="norm2")
+        embeddings.append(bert_hidden_state)
         
-        
-        monte_carlo_preds = torch.cat(output_list, dim=0)
-        prediction_mean = torch.mean(monte_carlo_preds, dim=0)
-        prediction_std = torch.std(monte_carlo_preds, dim=0)
-        prediction_entropy = -torch.sum(prediction_mean * torch.log(prediction_mean), dim=0).tolist()
-
-        embeddings.append(embedding)
-
-        prediction_mean = prediction_mean.tolist()
-
-        edited_std = prediction_std - torch.min(prediction_std)
-        prediction_label = torch.argmax(torch.mean(monte_carlo_preds, dim=0)).tolist()
-        prediction_std = prediction_std.tolist()
-        edited_std = edited_std.to
-
         # add prediction results to new data frame
-        new_df = new_df.append({'Text': text, 'OriginalLabel': label, 'PredictedLabel': prediction_label, 'Mean': prediction_mean, 'Std': prediction_std, 'EditedStd':edited_std}, ignore_index=True)
-        print({'Text': text, 'OriginalLabel': label, 'PredictedLabel': prediction_label, 'Mean': prediction_mean, 'Std': prediction_std, 'EditedStd':edited_std})
-        if prediction_label == label:
-            cnt += 1
+        new_df.loc[cnt] = [0, int(label), int(predicted_label), len(text), prediction_std.tolist(), text, prediction_mean.tolist()]
+        cnt += 1
+        # print({'Text': text, 'OriginalLabel': label, 'PredictedLabel': prediction_label, 'Mean': prediction_mean, 'Std': prediction_std, 'EditedStd':edited_std})
+        if predicted_label == label:
+            correct_cnt += 1
         else:
-            print("no ! ")
+            pass
+            # print("no ! ")
 
 
 embeddings = np.concatenate(embeddings, axis=0)
@@ -93,6 +80,9 @@ pca_result = pca.fit_transform(embeddings)
 gmm = GaussianMixture(n_components=3)
 gmm.fit(pca_result)
 gmm_labels = gmm.predict(pca_result)
+# add cluster index to new data frame
+new_df["ClusterIdx"] = gmm_labels
+
 
 # plot
 fig = plt.figure(figsize=(10, 10))
@@ -103,8 +93,9 @@ ax.scatter(pca_result[:, 0], pca_result[:, 1], pca_result[:, 2], c=gmm_labels, s
 plt.savefig('outputs/embeding_with_custom_test.png')
 
 # save new data frame
-new_df.to_csv('outputs/tested_data.csv', index=False)
+new_df.to_csv(df_save_path, index=False)
 
-    
-print('acc :', cnt / len(texts))
+print('cnt : ', cnt)
+print('len : ', len(texts))
+print('acc :', correct_cnt / len(texts))
 
