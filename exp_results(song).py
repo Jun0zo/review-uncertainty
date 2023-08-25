@@ -202,7 +202,7 @@ precision = 394 / (394 + 5)
 recall = 394 / (394 + 11)
 f1 = 2 * (precision * recall) / (precision + recall)
 
-# plot acc, precision, recall, f1 at bar (with 4 difference soft colors, not very bright) (with tag text)
+# plot acc, precision, recall, f1 at bar (with 4 difference colors) (with tag text)
 import matplotlib.pyplot as plt
 import numpy as np
 

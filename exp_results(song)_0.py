@@ -5,8 +5,8 @@ import numpy as np
 # read data (with column name)
 # df = pd.read_csv('data/tested_data(base).csv')
 
-read_csv_path = 'results/mid/tested_data(song-light-last-max).csv'
-sorted_csv_path = 'results/csv/sorted_data(light-last-max).csv'
+read_csv_path = 'results/mid/tested_data(song-light-0-norm).csv'
+sorted_csv_path = 'results/csv/sorted_data(light-0-norm).csv'
 
 
 df = pd.read_csv(read_csv_path)
